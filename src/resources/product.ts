@@ -7,7 +7,28 @@ interface ResourceOptions {
     options?: RequestOptions
   ) => Promise<R>;
 }
-interface ProductCreateInput {}
+
+interface ProductCreateInput {
+  collection_id?: number;
+  discount_amount?: number;
+  discount_type?: 'percentage';
+  shopify_product_id: number;
+  subscription_defaults: {
+    cutoff_day_of_month?: number;
+    cutoff_day_of_week?: number;
+    expire_after_specific_number_of_charges?: number;
+    modifiable_properties?: string[];
+    number_charges_until_expiration?: number;
+    order_day_of_month?: number | null;
+    order_day_of_week?: number | null;
+    order_interval_frequency_options?: string[];
+    order_interval_unit?: 'day' | 'week' | 'month';
+    storefront_purchase_options?:
+      | 'subscription_only'
+      | 'subscription_and_onetime';
+  };
+}
+
 interface RechargeProduct {
   product: {
     id: number;
@@ -51,10 +72,37 @@ export default class RechargeProductResource {
   }
 
   async create(data: ProductCreateInput): Promise<RechargeProduct> {
-    let result = await this.options.request<
+    const result = await this.options.request<
       ProductCreateInput,
       RechargeProduct
     >('/products', data, { method: 'POST' });
+    return result;
+  }
+
+  async get(id: string): Promise<RechargeProduct> {
+    const result = await this.options.request<null, RechargeProduct>(
+      `/products/${id}`
+    );
+    return result;
+  }
+
+  async update(
+    id: string,
+    data: Partial<ProductCreateInput>
+  ): Promise<RechargeProduct> {
+    const result = await this.options.request<
+      Partial<ProductCreateInput>,
+      RechargeProduct
+    >(`/products/${id}`, data, { method: 'PUT' });
+    return result;
+  }
+
+  async delete(id: string): Promise<RechargeProduct> {
+    const result = await this.options.request<undefined, RechargeProduct>(
+      `/products/${id}`,
+      undefined,
+      { method: 'DELETE' }
+    );
     return result;
   }
 }

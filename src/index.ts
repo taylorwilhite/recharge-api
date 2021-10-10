@@ -5,7 +5,7 @@ interface RechargeClientOptions {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
 }
 
 export default class Recharge {
