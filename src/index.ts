@@ -18,11 +18,11 @@ export default class Recharge {
     this.product = new RechargeProductResource({ request: this.request });
   }
 
-  async request<T, R>(
+  request = async <T, R>(
     path: string,
     data?: T,
     options?: RequestOptions
-  ): Promise<R> {
+  ): Promise<R> => {
     const fetchOptions = {
       headers: {
         'X-Recharge-Access-Token': this.options.accessToken,
@@ -35,5 +35,5 @@ export default class Recharge {
     });
     const result = response.json() as Promise<R>;
     return result;
-  }
+  };
 }
