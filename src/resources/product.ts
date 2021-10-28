@@ -71,6 +71,7 @@ export default class RechargeProductResource {
     this.options = options;
   }
 
+  /** Create a new product */
   async create(data: ProductCreateInput): Promise<RechargeProduct> {
     const result = await this.options.request<
       ProductCreateInput,
@@ -86,6 +87,7 @@ export default class RechargeProductResource {
     return result;
   }
 
+  /** Update product by ID */
   async update(
     id: string,
     data: Partial<ProductCreateInput>
@@ -97,6 +99,7 @@ export default class RechargeProductResource {
     return result;
   }
 
+  /** Delete product by ID */
   async delete(id: string): Promise<RechargeProduct> {
     const result = await this.options.request<undefined, RechargeProduct>(
       `/products/${id}`,
