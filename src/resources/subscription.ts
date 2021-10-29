@@ -1,3 +1,4 @@
+import { URLSearchParams } from 'url';
 import { ResourceOptions } from '..';
 interface AnalyticsData {
   utm_params: string[];
@@ -43,6 +44,22 @@ interface RechargeSubscription {
   variant_title: string | null;
 }
 
+class SubscriptionListParams {
+  address_id: string;
+  created_at_max: string;
+  created_at_min: string;
+  customer_id: string;
+  ids: string; // TODO: turn this into array and join on request
+  include_onetimes: string;
+  limit: string;
+  page: string;
+  shopify_customer_id: string;
+  shopify_variant_id: string;
+  status: string;
+  updated_at_max: string;
+  updated_at_min: string;
+}
+
 export default class RechargeSubscriptionResource {
   options: ResourceOptions;
   constructor(options: ResourceOptions) {
@@ -53,6 +70,17 @@ export default class RechargeSubscriptionResource {
   async get(id: string): Promise<RechargeSubscription> {
     const result = this.options.request<null, RechargeSubscription>(
       `/subscriptions/${id}`
+    );
+    return result;
+  }
+
+  /** List all subscriptions for a store */
+  async list(params: SubscriptionListParams): Promise<RechargeSubscription[]> {
+    const query = Object.keys(params)
+      .map(key => key + '=' + params[key])
+      .join('&');
+    const result = this.options.request<null, RechargeSubscription[]>(
+      `/subscriptions?${query}`
     );
     return result;
   }
