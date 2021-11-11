@@ -45,19 +45,19 @@ interface RechargeSubscription {
 }
 
 class SubscriptionListParams {
-  address_id: string;
-  created_at_max: string;
-  created_at_min: string;
-  customer_id: string;
-  ids: string; // TODO: turn this into array and join on request
-  include_onetimes: string;
-  limit: string;
-  page: string;
-  shopify_customer_id: string;
-  shopify_variant_id: string;
-  status: string;
-  updated_at_max: string;
-  updated_at_min: string;
+  address_id?: string;
+  created_at_max?: string;
+  created_at_min?: string;
+  customer_id?: string;
+  ids?: string; // TODO: turn this into array and join on request
+  include_onetimes?: string;
+  limit?: string;
+  page?: string;
+  shopify_customer_id?: string;
+  shopify_variant_id?: string;
+  status?: string;
+  updated_at_max?: string;
+  updated_at_min?: string;
 }
 
 export default class RechargeSubscriptionResource {
@@ -68,10 +68,11 @@ export default class RechargeSubscriptionResource {
 
   /** Retrieve a subscription */
   async get(id: string): Promise<RechargeSubscription> {
-    const result = this.options.request<null, RechargeSubscription>(
-      `/subscriptions/${id}`
-    );
-    return result;
+    const result = await this.options.request<
+      null,
+      { subscription: RechargeSubscription }
+    >(`/subscriptions/${id}`);
+    return result.subscription;
   }
 
   /** List all subscriptions for a store */
@@ -79,10 +80,11 @@ export default class RechargeSubscriptionResource {
     const query = Object.keys(params)
       .map(key => key + '=' + params[key])
       .join('&');
-    const result = this.options.request<null, RechargeSubscription[]>(
-      `/subscriptions?${query}`
-    );
-    return result;
+    const result = await this.options.request<
+      null,
+      { subscriptions: RechargeSubscription[] }
+    >(`/subscriptions?${query}`);
+    return result.subscriptions;
   }
 
   /** Update a subscription by ID */
@@ -90,11 +92,11 @@ export default class RechargeSubscriptionResource {
     id: string,
     data: Partial<RechargeSubscription>
   ): Promise<RechargeSubscription> {
-    const result = this.options.request<
+    const result = await this.options.request<
       Partial<RechargeSubscription>,
-      RechargeSubscription
+      { subscription: RechargeSubscription }
     >(`/products/${id}`, data, { method: 'PUT' });
-    return result;
+    return result.subscription;
   }
 
   async swapProduct(
