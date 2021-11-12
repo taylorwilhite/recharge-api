@@ -1,20 +1,37 @@
 import { URLSearchParams } from 'url';
 import { ResourceOptions } from '..';
 interface AnalyticsData {
-  utm_params: string[];
+  utm_params: RechargeUTMParams;
 }
+
+interface RechargeUTMParams {
+  utm_campaign: string;
+  utm_content: string;
+  utm_data_source: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_term: string;
+  utm_timestamp: string;
+}
+
 interface RechargeSubscription {
   id: number;
   address_id: number;
+  customer_id: number;
   analytics_data: AnalyticsData;
   cancellation_reason: string | null;
   cancellation_reason_comments: string | null;
   cancelled_at: string | null;
   charge_interval_frequency: string;
   created_at: string;
-  customer_id: number;
   email: string;
   expire_after_specific_number_of_charges: number | null;
+  external_product_id: {
+    ecommerce: string;
+  };
+  external_variant_id: {
+    ecommerce: string;
+  };
   has_queued_charges: boolean;
   is_prepaid: boolean;
   is_skippable: boolean;
@@ -25,7 +42,7 @@ interface RechargeSubscription {
   order_day_of_week: number | null;
   order_interval_frequency: string;
   order_interval_unit: 'day' | 'week' | 'month';
-  price: string | number;
+  price: string;
   product_title: string;
   properties: [
     {
@@ -34,28 +51,24 @@ interface RechargeSubscription {
     }
   ];
   quantity: number;
-  recharge_product_id: number;
-  shopify_product_id: number;
-  shopify_variant_id: number;
   sku: string | null;
   sku_override: boolean;
-  status: 'ACTIVE' | 'CANCELLED' | 'EXPIRED';
+  status: 'active' | 'cancelled' | 'expired';
   updated_at: string;
   variant_title: string | null;
 }
 
 class SubscriptionListParams {
   address_id?: string;
+  address_ids?: string; // TODO: turn this into array and join on request
   created_at_max?: string;
   created_at_min?: string;
+  cursor?: string;
   customer_id?: string;
   ids?: string; // TODO: turn this into array and join on request
-  include_onetimes?: string;
   limit?: string;
   page?: string;
-  shopify_customer_id?: string;
-  shopify_variant_id?: string;
-  status?: string;
+  status?: 'active' | 'cancelled' | 'expired';
   updated_at_max?: string;
   updated_at_min?: string;
 }
@@ -101,12 +114,12 @@ export default class RechargeSubscriptionResource {
 
   async swapProduct(
     id: string,
-    productId: number,
-    variantId: number
+    productId: string,
+    variantId: string
   ): Promise<RechargeSubscription> {
     const result = await this.update(id, {
-      shopify_variant_id: variantId,
-      shopify_product_id: productId,
+      external_variant_id: { ecommerce: variantId },
+      external_product_id: { ecommerce: productId },
     });
     return result;
   }
