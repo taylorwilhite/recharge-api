@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { TokenBucket } from 'limiter';
 import RechargeProductResource from './resources/product';
 import RechargeSubscriptionResource from './resources/subscription';
 interface RechargeClientOptions {
@@ -17,26 +18,113 @@ export interface ResourceOptions {
   ) => Promise<R>;
 }
 
+interface RateLimits {
+  left: number;
+  lastCheck: number;
+  limit: number;
+  refill: number;
+  rate: number;
+}
+
+class Queue {
+  elements: any[];
+  constructor() {
+    this.elements = [];
+  }
+
+  add(el) {
+    this.elements.push(el);
+  }
+  remove() {
+    return this.elements.shift();
+  }
+  isEmpty() {
+    return this.elements.length === 0;
+  }
+  length() {
+    return this.elements.length;
+  }
+}
+
+class AutoQueue extends Queue {
+  pendingPromise: boolean;
+  constructor() {
+    super();
+    this.pendingPromise = false;
+  }
+
+  add<T>(action): Promise<T> {
+    return new Promise((resolve, reject) => {
+      super.add({ action, resolve, reject });
+      this.remove();
+    });
+  }
+
+  async remove() {
+    if (this.pendingPromise) return false;
+    let item = super.remove();
+    if (!item) return false;
+    try {
+      this.pendingPromise = true;
+      let payload = await item.action(this);
+      this.pendingPromise = false;
+      item.resolve(payload);
+    } catch (err) {
+      this.pendingPromise = false;
+      item.reject(err);
+    } finally {
+      this.remove();
+    }
+
+    return true;
+  }
+}
+
 export default class Recharge {
   options: RechargeClientOptions;
   baseUrl: string;
   product: RechargeProductResource;
   subscription: RechargeSubscriptionResource;
+  limits: RateLimits;
+  bucket: TokenBucket;
+  queue: AutoQueue;
 
   constructor(options: RechargeClientOptions) {
     this.options = options;
     this.baseUrl = 'https://api.rechargeapps.com';
-    this.product = new RechargeProductResource({ request: this.request });
+    this.limits = {
+      left: 40,
+      lastCheck: Date.now(),
+      limit: 40,
+      refill: 2,
+      rate: 1000,
+    };
+    this.bucket = new TokenBucket({
+      bucketSize: 40,
+      tokensPerInterval: 2,
+      interval: 'second',
+    });
+    this.queue = new AutoQueue();
+    this.product = new RechargeProductResource({ request: this.rateRequest });
     this.subscription = new RechargeSubscriptionResource({
-      request: this.request,
+      request: this.rateRequest,
     });
   }
+
+  rateRequest = async <T, R>(
+    path: string,
+    data?: T,
+    options?: RequestOptions
+  ): Promise<R> => {
+    return this.queue.add<R>(this.request<T, R>(path, data, options));
+  };
 
   request = async <T, R>(
     path: string,
     data?: T,
     options?: RequestOptions
   ): Promise<R> => {
+    await this.bucket.removeTokens(1);
     const fetchOptions = {
       headers: {
         'X-Recharge-Access-Token': this.options.accessToken,
@@ -47,7 +135,36 @@ export default class Recharge {
       ...options,
       headers: { ...fetchOptions.headers },
     });
+    const limit = await response.headers.get('x-recharge-limit');
+    this.updateLimits(limit);
     const result = response.json() as Promise<R>;
     return result;
+  };
+
+  updateLimits = (limit: string) => {
+    if (!limit) return;
+    const limits = limit.split('/').map(num => parseInt(num, 10));
+    this.limits.left = limits[1] - limits[0];
+    this.limits.limit = limits[1];
+    this.limits.lastCheck = Date.now();
+  };
+
+  refillLimits = () => {
+    const now = Date.now();
+    const refilled = Math.floor(
+      ((now - this.limits.lastCheck) * this.limits.refill) / this.limits.rate
+    );
+
+    this.limits.left += refilled;
+
+    // re-add the time for the refilled tokens only
+    this.limits.lastCheck += Math.ceil(
+      (refilled * this.limits.rate) / this.limits.rate
+    );
+
+    if (this.limits.left > this.limits.limit) {
+      this.limits.left = this.limits.limit;
+      this.limits.lastCheck = now;
+    }
   };
 }
