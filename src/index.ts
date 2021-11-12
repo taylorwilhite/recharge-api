@@ -135,36 +135,7 @@ export default class Recharge {
       ...options,
       headers: { ...fetchOptions.headers },
     });
-    const limit = await response.headers.get('x-recharge-limit');
-    this.updateLimits(limit);
     const result = response.json() as Promise<R>;
     return result;
-  };
-
-  updateLimits = (limit: string) => {
-    if (!limit) return;
-    const limits = limit.split('/').map(num => parseInt(num, 10));
-    this.limits.left = limits[1] - limits[0];
-    this.limits.limit = limits[1];
-    this.limits.lastCheck = Date.now();
-  };
-
-  refillLimits = () => {
-    const now = Date.now();
-    const refilled = Math.floor(
-      ((now - this.limits.lastCheck) * this.limits.refill) / this.limits.rate
-    );
-
-    this.limits.left += refilled;
-
-    // re-add the time for the refilled tokens only
-    this.limits.lastCheck += Math.ceil(
-      (refilled * this.limits.rate) / this.limits.rate
-    );
-
-    if (this.limits.left > this.limits.limit) {
-      this.limits.left = this.limits.limit;
-      this.limits.lastCheck = now;
-    }
   };
 }
