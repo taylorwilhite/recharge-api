@@ -86,7 +86,9 @@ export default class RechargePlanResource {
   }
 
   /** Create a new plan */
-  async create(data: PlanCreateInput): Promise<RechargePlan> {
+  async create(
+    data: PlanCreateInput
+  ): Promise<RechargePlan | { plan: RechargePlan }> {
     const result = await this.options.request<
       PlanCreateInput,
       { plan: RechargePlan }
@@ -131,11 +133,12 @@ export default class RechargePlanResource {
   }
 
   /** Delete plan by ID */
-  async delete(id: number): Promise<RechargePlan> {
-    const result = await this.options.request<
+  async delete(id: number): Promise<Number> {
+    const result = await this.options.request<undefined, Number>(
+      `/plans/${id}`,
       undefined,
-      { plan: RechargePlan }
-    >(`/plans/${id}`, undefined, { method: 'DELETE' });
-    return result.plan;
+      { method: 'DELETE' }
+    );
+    return result;
   }
 }

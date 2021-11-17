@@ -14,6 +14,10 @@ interface RechargeUTMParams {
   utm_timestamp: string;
 }
 
+interface ExternalId {
+  ecommerce: string;
+}
+
 interface RechargeSubscription {
   id: number;
   address_id: number;
@@ -26,12 +30,8 @@ interface RechargeSubscription {
   created_at: string;
   email: string;
   expire_after_specific_number_of_charges: number | null;
-  external_product_id: {
-    ecommerce: string;
-  };
-  external_variant_id: {
-    ecommerce: string;
-  };
+  external_product_id: ExternalId;
+  external_variant_id: ExternalId;
   has_queued_charges: boolean;
   is_prepaid: boolean;
   is_skippable: boolean;
@@ -58,7 +58,7 @@ interface RechargeSubscription {
   variant_title: string | null;
 }
 
-class SubscriptionListParams {
+interface SubscriptionListParams {
   address_id?: string;
   address_ids?: string; // TODO: turn this into array and join on request
   created_at_max?: string;
@@ -71,6 +71,10 @@ class SubscriptionListParams {
   status?: 'active' | 'cancelled' | 'expired';
   updated_at_max?: string;
   updated_at_min?: string;
+}
+
+interface SubscriptionPatchParams extends Partial<RechargeSubscription> {
+  commit_update: boolean;
 }
 
 export default class RechargeSubscriptionResource {
@@ -103,12 +107,12 @@ export default class RechargeSubscriptionResource {
   /** Update a subscription by ID */
   async update(
     id: string,
-    data: Partial<RechargeSubscription>
+    data: SubscriptionPatchParams
   ): Promise<RechargeSubscription> {
     const result = await this.options.request<
       Partial<RechargeSubscription>,
       { subscription: RechargeSubscription }
-    >(`/products/${id}`, data, { method: 'PUT' });
+    >(`/subscriptions/${id}`, data, { method: 'PUT' });
     return result.subscription;
   }
 
@@ -120,6 +124,7 @@ export default class RechargeSubscriptionResource {
     const result = await this.update(id, {
       external_variant_id: { ecommerce: variantId },
       external_product_id: { ecommerce: productId },
+      commit_update: true,
     });
     return result;
   }

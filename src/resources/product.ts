@@ -8,70 +8,78 @@ interface ResourceOptions {
   ) => Promise<R>;
 }
 
-interface ProductCreateInput {
-  collection_id?: number;
-  discount_amount?: number;
-  discount_type?: 'percentage';
-  shopify_product_id: number;
-  subscription_defaults: {
-    cutoff_day_of_month?: number;
-    cutoff_day_of_week?: number;
-    expire_after_specific_number_of_charges?: number;
-    modifiable_properties?: string[];
-    number_charges_until_expiration?: number;
-    order_day_of_month?: number;
-    order_day_of_week?: number;
-    order_interval_frequency_options?: string[];
-    order_interval_unit?: 'day' | 'week' | 'month';
-    storefront_purchase_options?:
-      | 'subscription_only'
-      | 'subscription_and_onetime';
+interface ProductImage {
+  small?: string;
+  medium?: string;
+  large?: string;
+  original?: string;
+  sort_order?: number;
+}
+
+interface ProductOption {
+  name: string;
+  position: string;
+  values: ProductOptionValue[];
+}
+
+interface ProductOptionValue {
+  label: string;
+  position: number;
+}
+
+interface ProductVariant {
+  dimensions?: {
+    weight?: number;
+    weight_unit?: string;
   };
+  external_variant_id: string;
+  image?: ProductImage;
+  option_values: ProductOptionValue[];
+  prices?: {
+    compare_at_price?: string;
+    unit_price: string;
+  };
+  requires_shipping?: boolean;
+  sku?: string;
+  tax_code?: string;
+  taxable?: string;
+  title: string;
+}
+
+interface ProductCreateInput {
+  external_product_id: {
+    ecommerce: string;
+  };
+  brand?: string;
+  external_created_at?: string;
+  external_updated_at?: string;
+  images?: ProductImage[];
+  options: ProductOption[];
+  published_at?: string;
+  requires_shipping?: boolean;
+  title: string;
+  variants?: ProductVariant[];
+  vendor: string;
 }
 
 interface RechargeProduct {
-  id: number;
-  collection_id?: number;
-  created_at: Date;
-  discount_amount: number;
-  discount_type: string;
-  handle: string;
-  images: {
-    large: string;
-    medium: string;
-    original: string;
-    small: string;
+  external_product_id: {
+    ecommerce: string;
   };
-  product_id?: number;
-  shopify_product_id: number;
-  subscription_defaults: {
-    charge_interval_frequency: number;
-    cutoff_day_of_month?: number;
-    cutoff_day_of_week?: number;
-    expire_after_specific_number_of_charges?: number;
-    modifiable_properties: string[];
-    number_charges_until_expiration?: number;
-    order_day_of_month?: number;
-    order_day_of_week?: number;
-    order_interval_frequency_options: string[];
-    order_interval_unit: 'day' | 'week' | 'month';
-    storefront_purchase_options:
-      | 'subscription_only'
-      | 'subscription_and_onetime';
-  };
+  brand?: string;
+  external_created_at?: string;
+  external_updated_at?: string;
+  images?: ProductImage[];
+  options: ProductOption[];
+  published_at?: string;
+  requires_shipping?: boolean;
   title: string;
-  updated_at: Date;
+  variants?: ProductVariant[];
+  vendor: string;
 }
 
 class ProductListParams {
-  ids?: string[];
-  collection_id?: string;
-  shopify_product_ids?: string[];
-  storefront_purchase_options?:
-    | 'subscription_only'
-    | 'subscription_and_onetime';
-  page?: number;
-  limit?: number;
+  external_product_ids: string; // TODO: make this an array and combine
 }
 
 export default class RechargeProductResource {
@@ -90,7 +98,7 @@ export default class RechargeProductResource {
   }
 
   /** retrieve product by id */
-  async get(id: number): Promise<RechargeProduct> {
+  async get(id: string): Promise<RechargeProduct> {
     const result = await this.options.request<null, RechargeProduct>(
       `/products/${id}`
     );
@@ -116,7 +124,7 @@ export default class RechargeProductResource {
 
   /** Update product by ID */
   async update(
-    id: number,
+    id: string,
     data: Partial<ProductCreateInput>
   ): Promise<RechargeProduct> {
     const result = await this.options.request<
@@ -127,7 +135,7 @@ export default class RechargeProductResource {
   }
 
   /** Delete product by ID */
-  async delete(id: number): Promise<RechargeProduct> {
+  async delete(id: string): Promise<RechargeProduct> {
     const result = await this.options.request<
       undefined,
       { product: RechargeProduct }

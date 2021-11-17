@@ -1,7 +1,13 @@
 import fetch from 'node-fetch';
-import { TokenBucket } from 'limiter';
+import {
+  BurstyRateLimiter,
+  RateLimiterQueue,
+  RateLimiterMemory,
+} from 'rate-limiter-flexible';
 import RechargeProductResource from './resources/product';
 import RechargeSubscriptionResource from './resources/subscription';
+import RechargePlanResource from './resources/plan';
+
 interface RechargeClientOptions {
   accessToken: string;
 }
@@ -18,97 +24,36 @@ export interface ResourceOptions {
   ) => Promise<R>;
 }
 
-interface RateLimits {
-  left: number;
-  lastCheck: number;
-  limit: number;
-  refill: number;
-  rate: number;
-}
-
-class Queue {
-  elements: any[];
-  constructor() {
-    this.elements = [];
-  }
-
-  add(el) {
-    this.elements.push(el);
-  }
-  remove() {
-    return this.elements.shift();
-  }
-  isEmpty() {
-    return this.elements.length === 0;
-  }
-  length() {
-    return this.elements.length;
-  }
-}
-
-class AutoQueue extends Queue {
-  pendingPromise: boolean;
-  constructor() {
-    super();
-    this.pendingPromise = false;
-  }
-
-  add<T>(action): Promise<T> {
-    return new Promise((resolve, reject) => {
-      super.add({ action, resolve, reject });
-      this.remove();
-    });
-  }
-
-  async remove() {
-    if (this.pendingPromise) return false;
-    let item = super.remove();
-    if (!item) return false;
-    try {
-      this.pendingPromise = true;
-      let payload = await item.action(this);
-      this.pendingPromise = false;
-      item.resolve(payload);
-    } catch (err) {
-      this.pendingPromise = false;
-      item.reject(err);
-    } finally {
-      this.remove();
-    }
-
-    return true;
-  }
-}
-
 export default class Recharge {
   options: RechargeClientOptions;
   baseUrl: string;
   product: RechargeProductResource;
   subscription: RechargeSubscriptionResource;
-  limits: RateLimits;
-  bucket: TokenBucket;
-  queue: AutoQueue;
+  plan: RechargePlanResource;
+  bucket: RateLimiterQueue;
 
   constructor(options: RechargeClientOptions) {
     this.options = options;
     this.baseUrl = 'https://api.rechargeapps.com';
-    this.limits = {
-      left: 40,
-      lastCheck: Date.now(),
-      limit: 40,
-      refill: 2,
-      rate: 1000,
-    };
-    this.bucket = new TokenBucket({
-      bucketSize: 40,
-      tokensPerInterval: 2,
-      interval: 'second',
+    const burstyLimiter = new BurstyRateLimiter(
+      new RateLimiterMemory({
+        points: 2,
+        duration: 1,
+      }),
+      new RateLimiterMemory({
+        keyPrefix: 'burst',
+        points: 38,
+        duration: 60,
+      })
+    );
+    this.bucket = new RateLimiterQueue(burstyLimiter, {
+      maxQueueSize: 100,
     });
-    this.queue = new AutoQueue();
     this.product = new RechargeProductResource({ request: this.rateRequest });
     this.subscription = new RechargeSubscriptionResource({
       request: this.rateRequest,
     });
+    this.plan = new RechargePlanResource({ request: this.rateRequest });
   }
 
   rateRequest = async <T, R>(
@@ -116,7 +61,8 @@ export default class Recharge {
     data?: T,
     options?: RequestOptions
   ): Promise<R> => {
-    return this.queue.add<R>(this.request<T, R>(path, data, options));
+    await this.bucket.removeTokens(1);
+    return await this.request<T, R>(path, data, options);
   };
 
   request = async <T, R>(
@@ -124,18 +70,32 @@ export default class Recharge {
     data?: T,
     options?: RequestOptions
   ): Promise<R> => {
-    await this.bucket.removeTokens(1);
     const fetchOptions = {
       headers: {
         'X-Recharge-Access-Token': this.options.accessToken,
+        'X-Recharge-Version': '2021-11', // TODO: Allow setting this in options
         'Content-Type': 'application/json',
       },
     };
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...options,
       headers: { ...fetchOptions.headers },
+      body: data ? JSON.stringify(data) : null,
     });
-    const result = response.json() as Promise<R>;
-    return result;
+
+    // only return status code for successful delete operations
+    if (response.status == 204) {
+      return response.status;
+    }
+
+    const result = await response.json();
+    if (response.ok) {
+      return result;
+    } else {
+      const errors = Object.keys(result.errors).map(
+        key => `${key}: ${result.errors[key].join(',')}`
+      );
+      throw new Error(`${response.status}: ${errors}`);
+    }
   };
 }
