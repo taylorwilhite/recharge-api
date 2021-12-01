@@ -91,11 +91,17 @@ export default class Recharge {
     const result = await response.json();
     if (response.ok) {
       return result;
-    } else {
+    } else if (result.errors) {
       const errors = Object.keys(result.errors).map(
         key => `${key}: ${result.errors[key].join(',')}`
       );
       throw new Error(`${response.status}: ${errors}`);
+    } else if (result.error) {
+      throw new Error(`${response.status}: ${result.error}`);
+    } else {
+      throw new Error(
+        `Recharge returned an error with statuscode: ${response.status}`
+      );
     }
   };
 }
