@@ -97,7 +97,7 @@ export default class RechargeProductResource {
     return result.product;
   }
 
-  /** retrieve product by id */
+  /** retrieve product by external_product_id */
   async get(id: string): Promise<RechargeProduct> {
     const result = await this.options.request<null, RechargeProduct>(
       `/products/${id}`

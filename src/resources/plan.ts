@@ -21,7 +21,7 @@ interface PlanCreateInput {
     ecommerce: string;
   };
   sort_order?: number;
-  subscription_preferences: {
+  subscription_preferences?: {
     charge_interval_frequency: number;
     cutoff_day_of_month?: number;
     cutoff_day_of_week?: number;
